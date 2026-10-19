@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Server Error{% endblock %}
+{% block page_title %}Error{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="empty-state">
+    <h3>Something went wrong</h3>
+    <p>An unexpected error occurred. Please try again later.</p>
+    <a href="{{ url_for('attendance.dashboard') }}" class="btn btn-primary btn-sm">Go to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

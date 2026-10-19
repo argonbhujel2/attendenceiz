@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — My Attendance{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="card mb-2">
+  <div class="date-display">{{ format_bs_date(today) }}</div>
+  <div class="time-display" id="live-time">{{ format_time_24(now) }}</div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Today Status</div>
+    <div class="stat-value" style="font-size:1.1rem;font-family:inherit;">
+      {% if attendance and attendance.check_in and attendance.check_out %}
+        <span class="badge {{ attendance.status_badge_class }}">{{ attendance.status_label }}</span>
+      {% elif attendance and attendance.check_in %}
+        <span class="badge badge-warning">Incomplete</span>
+      {% elif can_checkout_overnight %}
+        <span class="badge badge-warning">Overnight Open</span>
+      {% else %}
+        <span class="badge badge-muted">Not Started</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Check In</div>
+    <div class="stat-value">{{ format_time_24(attendance.check_in) if attendance and attendance.check_in else '—' }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Check Out</div>
+    <div class="stat-value">{{ format_time_24(attendance.check_out) if attendance and attendance.check_out else '—' }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Working</div>
+    <div class="stat-value accent">{{ attendance.working_duration_str if attendance and attendance.working_seconds is not none else '—' }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Overtime</div>
+    <div class="stat-value success">{{ attendance.overtime_duration_str if attendance and attendance.overtime_seconds is not none else '—' }}</div>
+  </div>
+</div>
+
+<div class="action-buttons">
+  <form method="POST" action="{{ url_for('attendance.do_check_in') }}" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-primary btn-lg"
+      {% if attendance and attendance.check_in %}disabled{% endif %}>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+      Check In
+    </button>
+  </form>
+  <form method="POST" action="{{ url_for('attendance.do_check_out') }}" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-success btn-lg"
+      {% if not ((attendance and attendance.check_in and not attendance.check_out) or can_checkout_overnight) %}disabled{% endif %}>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      Check Out
+    </button>
+  </form>
+</div>
+
+<div class="stats-grid mt-3">
+  <div class="stat-card">
+    <div class="stat-label">This Month Present</div>
+    <div class="stat-value">{{ present_days }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Monthly Working</div>
+    <div class="stat-value accent">{{ total_working_str }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Monthly Overtime</div>
+    <div class="stat-value success">{{ total_overtime_str }}</div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">
+    <h3 class="card-title">Recent Records</h3>
+    <a href="{{ url_for('attendance.records') }}" class="btn btn-sm btn-outline">View all</a>
+  </div>
+  {% if recent %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date (B.S.)</th>
+          <th>In</th>
+          <th>Out</th>
+          <th>Working</th>
+          <th>OT</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent %}
+        <tr class="{% if r.status == 'absent' %}row-absent{% endif %}">
+          <td>{{ format_bs_date(r.attendance_date) }}</td>
+          <td>{{ format_time_24(r.check_in) }}</td>
+          <td>{{ format_time_24(r.check_out) }}{% if r.checkout_next_day %} <span class="text-muted">+1</span>{% endif %}</td>
+          <td>{{ r.working_duration_str }}</td>
+          <td>{{ r.overtime_duration_str }}</td>
+          <td><span class="badge {{ r.status_badge_class }}">{{ r.status_label }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <h3>No records yet</h3>
+    <p>Check in for the first time or add a past attendance entry.</p>
+    <a href="{{ url_for('attendance.manual_entry') }}" class="btn btn-primary btn-sm">Add Past Attendance</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

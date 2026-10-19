@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Records — My Attendance{% endblock %}
+{% block page_title %}Attendance Records{% endblock %}
+{% block content %}
+<div class="card mb-2">
+  <form method="GET" class="flex gap-2 items-center" style="flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;min-width:180px;">
+      <select name="month" class="form-control" onchange="this.form.submit()">
+        <option value="">All recorded days</option>
+        {% for m in months %}
+        <option value="{{ m.value }}" {% if selected_month == m.value %}selected{% endif %}>{{ m.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <a href="{{ url_for('attendance.export_csv', month=selected_month) }}" class="btn btn-outline btn-sm">Export CSV</a>
+  </form>
+  {% if selected_month %}
+  <p class="form-hint mt-1">Month view: missing past days are marked <span class="badge badge-absent">Absent</span></p>
+  {% endif %}
+</div>
+
+<div class="stats-grid mb-2">
+  <div class="stat-card">
+    <div class="stat-label">Present Days</div>
+    <div class="stat-value">{{ present_days }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Complete</div>
+    <div class="stat-value" style="color:#059669;">{{ complete_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Overtime</div>
+    <div class="stat-value success">{{ overtime_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Late</div>
+    <div class="stat-value" style="color:#d97706;">{{ late_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Absent</div>
+    <div class="stat-value" style="color:#dc2626;">{{ absent_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Working</div>
+    <div class="stat-value accent">{{ total_working_str }}</div>
+  </div>
+</div>
+
+{% if day_rows is not none %}
+  {% if day_rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date (B.S.)</th>
+          <th>Check In</th>
+          <th>Check Out</th>
+          <th>Working</th>
+          <th>Overtime</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in day_rows %}
+        {% set r = row.attendance %}
+        <tr class="{% if row.is_absent %}row-absent{% endif %}">
+          <td>{{ format_bs_date(row.date) }}</td>
+          {% if r %}
+          <td>{{ format_time_24(r.check_in) }}</td>
+          <td>
+            {{ format_time_24(r.check_out) }}
+            {% if r.checkout_next_day %}<span class="badge badge-muted">+1 day</span>{% endif %}
+          </td>
+          <td>{{ r.working_duration_str }}</td>
+          <td>{{ r.overtime_duration_str }}</td>
+          <td><span class="badge {{ r.status_badge_class }}">{{ r.status_label }}</span></td>
+          <td class="text-secondary" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;">{{ r.notes or '—' }}</td>
+          {% else %}
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>
+            {% if row.is_absent %}
+            <span class="badge badge-absent">Absent</span>
+            {% else %}
+            <span class="badge badge-muted">Not started</span>
+            {% endif %}
+          </td>
+          <td>—</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="empty-state">
+      <h3>No days in this range</h3>
+    </div>
+  </div>
+  {% endif %}
+
+{% elif records and records.items %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Date (B.S.)</th>
+        <th>Check In</th>
+        <th>Check Out</th>
+        <th>Working</th>
+        <th>Overtime</th>
+        <th>Status</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records.items %}
+      <tr class="{% if r.status == 'absent' %}row-absent{% endif %}">
+        <td>{{ format_bs_date(r.attendance_date) }}</td>
+        <td>{{ format_time_24(r.check_in) }}</td>
+        <td>
+          {{ format_time_24(r.check_out) }}
+          {% if r.checkout_next_day %}<span class="badge badge-muted">+1 day</span>{% endif %}
+        </td>
+        <td>{{ r.working_duration_str }}</td>
+        <td>{{ r.overtime_duration_str }}</td>
+        <td><span class="badge {{ r.status_badge_class }}">{{ r.status_label }}</span></td>
+        <td class="text-secondary" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;">{{ r.notes or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if records.pages > 1 %}
+<div class="pagination">
+  {% if records.has_prev %}
+  <a href="{{ url_for('attendance.records', page=records.prev_num, month=selected_month) }}">← Prev</a>
+  {% endif %}
+  <span class="active">{{ records.page }} / {{ records.pages }}</span>
+  {% if records.has_next %}
+  <a href="{{ url_for('attendance.records', page=records.next_num, month=selected_month) }}">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <h3>No attendance records</h3>
+    <p>Records will appear here after you check in or add past entries. Select a month to see Absent days.</p>
+    <a href="{{ url_for('attendance.manual_entry') }}" class="btn btn-primary btn-sm">Add Past Attendance</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

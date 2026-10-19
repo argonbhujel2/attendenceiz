@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Reports — My Attendance{% endblock %}
+{% block page_title %}Monthly Reports{% endblock %}
+{% block content %}
+<div class="card mb-2">
+  <form method="GET" class="flex gap-2 items-center">
+    <select name="month" class="form-control" style="max-width:220px;" onchange="this.form.submit()">
+      {% for m in months %}
+      <option value="{{ m.value }}" {% if selected_month == m.value %}selected{% endif %}>{{ m.label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Present Days</div>
+    <div class="stat-value">{{ present_days }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Completed Shifts</div>
+    <div class="stat-value">{{ completed_shifts }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Incomplete</div>
+    <div class="stat-value">{{ incomplete_shifts }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Working</div>
+    <div class="stat-value accent">{{ total_working_str }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Overtime</div>
+    <div class="stat-value success">{{ total_overtime_str }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg Working</div>
+    <div class="stat-value">{{ average_working_str }}</div>
+  </div>
+</div>
+
+{% if records %}
+<div class="card mt-3">
+  <div class="card-header">
+    <h3 class="card-title">Daily Breakdown — {{ month_label }}</h3>
+  </div>
+  <div class="chart-container">
+    <canvas id="hoursChart"></canvas>
+  </div>
+</div>
+
+<div class="table-wrap mt-3">
+  <table>
+    <thead>
+      <tr>
+        <th>Date (B.S.)</th>
+        <th>In</th>
+        <th>Out</th>
+        <th>Working</th>
+        <th>Overtime</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr class="{% if r.status == 'absent' %}row-absent{% endif %}">
+        <td>{{ format_bs_date(r.attendance_date) }}</td>
+        <td>{{ format_time_24(r.check_in) }}</td>
+        <td>{{ format_time_24(r.check_out) }}{% if r.checkout_next_day %} +1{% endif %}</td>
+        <td>{{ r.working_duration_str }}</td>
+        <td>{{ r.overtime_duration_str }}</td>
+        <td><span class="badge {{ r.status_badge_class }}">{{ r.status_label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card mt-3">
+  <div class="empty-state">
+    <h3>No data for this month</h3>
+    <p>Select another month or add attendance records.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if records %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const ctx = document.getElementById('hoursChart');
+  if (ctx) {
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: {{ chart_labels | tojson }},
+        datasets: [
+          {
+            label: 'Working hours',
+            data: {{ chart_working | tojson }},
+            backgroundColor: 'rgba(37, 99, 235, 0.7)',
+            borderRadius: 4
+          },
+          {
+            label: 'Overtime hours',
+            data: {{ chart_overtime | tojson }},
+            backgroundColor: 'rgba(5, 150, 105, 0.7)',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Hours' } }
+        }
+      }
+    });
+  }
+</script>
+{% endif %}
+{% endblock %}

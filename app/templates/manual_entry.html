@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Add Past Attendance — My Attendance{% endblock %}
+{% block page_title %}Add Past Attendance{% endblock %}
+{% block content %}
+<div class="card" style="max-width:720px;">
+  <p class="text-secondary mb-2" style="font-size:0.9rem;">
+    एकै पटक धेरै विगतका उपस्थिति थप्न मिल्छ। आज वा भविष्यको मिति स्वीकार गरिँदैन।
+    प्रत्येक B.S. महिनामा दिन संख्या फरक हुन सक्छ (२९–३२) — गते स्वतः अपडेट हुन्छ।
+  </p>
+
+  <form method="POST" data-loading id="manual-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div id="entry-rows">
+      <div class="entry-row card" style="padding:1rem;margin-bottom:0.75rem;border:1px solid var(--border);" data-row="0">
+        <div class="flex justify-between items-center mb-2">
+          <strong style="font-size:0.9rem;">Entry #1</strong>
+          <button type="button" class="btn btn-sm btn-outline remove-row hidden" title="Remove">Remove</button>
+        </div>
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label class="form-label">मिति (विक्रम संवत्)</label>
+          <div class="bs-date-row">
+            <div class="bs-date-field">
+              <label class="form-hint">वर्ष</label>
+              <select name="bs_year_0" class="form-control bs-year" required>
+                {% for y in years %}
+                <option value="{{ y }}" {% if selected_year|int == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="bs-date-field">
+              <label class="form-hint">महिना</label>
+              <select name="bs_month_0" class="form-control bs-month" required>
+                {% for m in months_list %}
+                <option value="{{ m.num }}" {% if selected_month|int == m.num %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="bs-date-field">
+              <label class="form-hint">गते</label>
+              <select name="bs_day_0" class="form-control bs-day" required>
+                {% for d in range(1, 33) %}
+                <option value="{{ d }}" {% if selected_day|int == d %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <p class="form-hint bs-preview mt-1">—</p>
+          <p class="form-hint bs-days-hint" style="color:var(--text-muted);">—</p>
+        </div>
+        <div class="flex gap-2" style="flex-wrap:wrap;">
+          <div class="form-group" style="flex:1;min-width:120px;margin-bottom:0.75rem;">
+            <label class="form-label">Check In</label>
+            <input type="time" name="check_in_0" class="form-control" required value="19:00">
+          </div>
+          <div class="form-group" style="flex:1;min-width:120px;margin-bottom:0.75rem;">
+            <label class="form-label">Check Out</label>
+            <input type="time" name="check_out_0" class="form-control" required value="07:00">
+          </div>
+        </div>
+        <div class="form-check">
+          <input type="checkbox" name="checkout_next_day_0" id="nd_0" checked>
+          <label for="nd_0">Check Out अर्को दिन (+1)</label>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Notes</label>
+          <input type="text" name="notes_0" class="form-control" placeholder="Optional">
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-2 mt-2" style="flex-wrap:wrap;">
+      <button type="button" id="add-row" class="btn btn-outline">+ अर्को entry थप्नुहोस्</button>
+      <button type="submit" class="btn btn-primary">सबै सुरक्षित गर्नुहोस्</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const months = {
+    1: 'बैशाख', 2: 'जेठ', 3: 'असार', 4: 'साउन', 5: 'भदौ', 6: 'असोज',
+    7: 'कात्तिक', 8: 'मंसिर', 9: 'पुष', 10: 'माघ', 11: 'फागुन', 12: 'चैत'
+  };
+  const dig = '०१२३४५६७८९';
+  function toDev(n) { return String(n).replace(/\d/g, d => dig[d]); }
+
+  const daysCache = {};
+
+  async function fetchDays(year, month) {
+    const key = year + '-' + month;
+    if (daysCache[key]) return daysCache[key];
+    try {
+      const r = await fetch('/api/bs-days?year=' + year + '&month=' + month, {
+        credentials: 'same-origin'
+      });
+      const data = await r.json();
+      const days = data.days || 30;
+      daysCache[key] = days;
+      return days;
+    } catch (e) {
+      return 30;
+    }
+  }
+
+  async function refreshDays(row) {
+    const y = row.querySelector('.bs-year');
+    const m = row.querySelector('.bs-month');
+    const d = row.querySelector('.bs-day');
+    const hint = row.querySelector('.bs-days-hint');
+    if (!y || !m || !d) return;
+    const days = await fetchDays(y.value, m.value);
+    const prev = d.value;
+    d.innerHTML = '';
+    for (let i = 1; i <= days; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = i;
+      if (String(i) === String(prev) || (i === days && parseInt(prev, 10) > days)) {
+        opt.selected = true;
+      }
+      d.appendChild(opt);
+    }
+    // if previous day > max, select max
+    if (parseInt(prev, 10) > days) {
+      d.value = String(days);
+    }
+    if (hint) {
+      hint.textContent = months[m.value] + ' ' + y.value + ' मा ' + toDev(days) + ' दिन छन्।';
+    }
+    updatePreview(row);
+  }
+
+  function updatePreview(row) {
+    const y = row.querySelector('.bs-year');
+    const m = row.querySelector('.bs-month');
+    const d = row.querySelector('.bs-day');
+    const prev = row.querySelector('.bs-preview');
+    if (y && m && d && prev) {
+      prev.textContent = 'मिति: ' + toDev(d.value) + ' ' + (months[m.value] || '') + ' ' + toDev(y.value);
+    }
+  }
+
+  function bindRow(row) {
+    const y = row.querySelector('.bs-year');
+    const m = row.querySelector('.bs-month');
+    const d = row.querySelector('.bs-day');
+    if (y) y.addEventListener('change', () => refreshDays(row));
+    if (m) m.addEventListener('change', () => refreshDays(row));
+    if (d) d.addEventListener('change', () => updatePreview(row));
+    refreshDays(row);
+  }
+
+  document.querySelectorAll('.entry-row').forEach(bindRow);
+
+  let rowIndex = 0;
+  const container = document.getElementById('entry-rows');
+  const yearOpts = document.querySelector('.bs-year').innerHTML;
+  const monthOpts = document.querySelector('.bs-month').innerHTML;
+
+  document.getElementById('add-row').addEventListener('click', function () {
+    rowIndex += 1;
+    const div = document.createElement('div');
+    div.className = 'entry-row card';
+    div.style.cssText = 'padding:1rem;margin-bottom:0.75rem;border:1px solid var(--border);';
+    div.dataset.row = rowIndex;
+    div.innerHTML = `
+      <div class="flex justify-between items-center mb-2">
+        <strong style="font-size:0.9rem;">Entry #${rowIndex + 1}</strong>
+        <button type="button" class="btn btn-sm btn-outline remove-row">Remove</button>
+      </div>
+      <div class="form-group" style="margin-bottom:0.75rem;">
+        <label class="form-label">मिति (विक्रम संवत्)</label>
+        <div class="bs-date-row">
+          <div class="bs-date-field">
+            <label class="form-hint">वर्ष</label>
+            <select name="bs_year_${rowIndex}" class="form-control bs-year" required>${yearOpts}</select>
+          </div>
+          <div class="bs-date-field">
+            <label class="form-hint">महिना</label>
+            <select name="bs_month_${rowIndex}" class="form-control bs-month" required>${monthOpts}</select>
+          </div>
+          <div class="bs-date-field">
+            <label class="form-hint">गते</label>
+            <select name="bs_day_${rowIndex}" class="form-control bs-day" required></select>
+          </div>
+        </div>
+        <p class="form-hint bs-preview mt-1">—</p>
+        <p class="form-hint bs-days-hint" style="color:var(--text-muted);">—</p>
+      </div>
+      <div class="flex gap-2" style="flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:120px;margin-bottom:0.75rem;">
+          <label class="form-label">Check In</label>
+          <input type="time" name="check_in_${rowIndex}" class="form-control" required value="19:00">
+        </div>
+        <div class="form-group" style="flex:1;min-width:120px;margin-bottom:0.75rem;">
+          <label class="form-label">Check Out</label>
+          <input type="time" name="check_out_${rowIndex}" class="form-control" required value="07:00">
+        </div>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" name="checkout_next_day_${rowIndex}" id="nd_${rowIndex}" checked>
+        <label for="nd_${rowIndex}">Check Out अर्को दिन (+1)</label>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes_${rowIndex}" class="form-control" placeholder="Optional">
+      </div>`;
+    container.appendChild(div);
+    bindRow(div);
+    div.querySelector('.remove-row').addEventListener('click', () => {
+      if (container.querySelectorAll('.entry-row').length > 1) div.remove();
+    });
+  });
+
+  container.addEventListener('click', function (e) {
+    if (e.target.classList.contains('remove-row')) {
+      const row = e.target.closest('.entry-row');
+      if (row && container.querySelectorAll('.entry-row').length > 1) row.remove();
+    }
+  });
+})();
+</script>
+{% endblock %}

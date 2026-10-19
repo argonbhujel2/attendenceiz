@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Sign In — My Attendance{% endblock %}
+{% block auth_content %}
+<div class="login-page">
+  <div class="login-visual">
+    <div class="login-visual-content">
+      <img src="{{ url_for('static', filename='icons/logo.svg') }}" alt="My Attendance" class="logo-lg" width="72" height="72" style="filter:brightness(0) invert(1);">
+      <h1>My Attendance</h1>
+      <p>Track your shifts, overnight duties, and overtime with a clean personal dashboard built for Nepal.</p>
+    </div>
+  </div>
+  <div class="login-form-side">
+    <div class="login-form-box">
+      <h2>Sign in</h2>
+      <p class="subtitle">Enter your credentials to continue</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="alerts">
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category if category in ['success','error','warning'] else 'error' }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}" data-loading>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <input type="text" id="username" name="username" class="form-control" required autofocus autocomplete="username" placeholder="Your username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input type="password" id="password" name="password" class="form-control" required autocomplete="current-password" placeholder="Your password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-block">Sign In</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
